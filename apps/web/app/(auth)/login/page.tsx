@@ -8,6 +8,10 @@ import { setLoggedInCookie } from "@/features/auth/auth-cookie";
 import { LoginPage, validateCliCallback } from "@multica/views/auth";
 
 const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+const oidcAuthorizeUrl = process.env.NEXT_PUBLIC_OIDC_AUTHORIZE_URL;
+const oidcClientId = process.env.NEXT_PUBLIC_OIDC_CLIENT_ID;
+const oidcScope = process.env.NEXT_PUBLIC_OIDC_SCOPE || "openid email profile";
+const oidcLabel = process.env.NEXT_PUBLIC_OIDC_LABEL || "Continue with Agentic360";
 
 function LoginPageContent() {
   const router = useRouter();
@@ -46,6 +50,12 @@ function LoginPageContent() {
     .filter(Boolean)
     .join(",") || undefined;
 
+  // OIDC (Agentic360 IAM) state carries the provider marker so the callback can
+  // route the response to the OIDC exchange instead of Google.
+  const oidcState = ["provider:agentic360", nextUrl !== "/issues" ? `next:${nextUrl}` : ""]
+    .filter(Boolean)
+    .join(",");
+
   return (
     <LoginPage
       onSuccess={handleSuccess}
@@ -55,6 +65,18 @@ function LoginPageContent() {
               clientId: googleClientId,
               redirectUri: `${window.location.origin}/auth/callback`,
               state: googleState,
+            }
+          : undefined
+      }
+      oidc={
+        oidcAuthorizeUrl && oidcClientId
+          ? {
+              authorizeUrl: oidcAuthorizeUrl,
+              clientId: oidcClientId,
+              redirectUri: `${window.location.origin}/auth/callback`,
+              scope: oidcScope,
+              state: oidcState,
+              label: oidcLabel,
             }
           : undefined
       }

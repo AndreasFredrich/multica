@@ -207,6 +207,21 @@ export class ApiClient {
     });
   }
 
+  async oidcLogin(
+    code: string,
+    redirectUri: string,
+    codeVerifier: string,
+  ): Promise<LoginResponse> {
+    return this.fetch("/auth/oidc", {
+      method: "POST",
+      body: JSON.stringify({
+        code,
+        redirect_uri: redirectUri,
+        code_verifier: codeVerifier,
+      }),
+    });
+  }
+
   async logout(): Promise<void> {
     await this.fetch("/auth/logout", { method: "POST" });
   }

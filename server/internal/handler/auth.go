@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -76,11 +77,40 @@ func (h *Handler) issueJWT(user db.User) (string, error) {
 	return token.SignedString(auth.JWTSecret())
 }
 
+// errSignupNotAllowed is returned by findOrCreateUser when a brand-new account
+// would be created for an email outside the configured signup allowlist.
+var errSignupNotAllowed = errors.New("signup not allowed for this email domain")
+
+// emailSignupAllowed reports whether a NEW account may be created for email.
+// AUTH_ALLOWED_EMAIL_DOMAINS is a comma-separated domain allowlist; when unset
+// the platform stays open (existing behavior). Existing users always pass — the
+// allowlist only gates account creation, not login of already-provisioned users.
+func emailSignupAllowed(email string) bool {
+	raw := strings.TrimSpace(os.Getenv("AUTH_ALLOWED_EMAIL_DOMAINS"))
+	if raw == "" {
+		return true
+	}
+	at := strings.LastIndex(email, "@")
+	if at < 0 {
+		return false
+	}
+	domain := strings.ToLower(strings.TrimSpace(email[at+1:]))
+	for _, d := range strings.Split(raw, ",") {
+		if d = strings.ToLower(strings.TrimSpace(d)); d != "" && d == domain {
+			return true
+		}
+	}
+	return false
+}
+
 func (h *Handler) findOrCreateUser(ctx context.Context, email string) (db.User, error) {
 	user, err := h.Queries.GetUserByEmail(ctx, email)
 	if err != nil {
 		if !isNotFound(err) {
 			return db.User{}, err
+		}
+		if !emailSignupAllowed(email) {
+			return db.User{}, errSignupNotAllowed
 		}
 		name := email
 		if at := strings.Index(email, "@"); at > 0 {
@@ -180,6 +210,10 @@ func (h *Handler) VerifyCode(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.findOrCreateUser(r.Context(), email)
 	if err != nil {
+		if errors.Is(err, errSignupNotAllowed) {
+			writeError(w, http.StatusForbidden, "registration is restricted to approved email domains")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "failed to create user")
 		return
 	}
@@ -336,6 +370,10 @@ func (h *Handler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.findOrCreateUser(r.Context(), email)
 	if err != nil {
+		if errors.Is(err, errSignupNotAllowed) {
+			writeError(w, http.StatusForbidden, "registration is restricted to approved email domains")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "failed to create user")
 		return
 	}

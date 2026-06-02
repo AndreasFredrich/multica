@@ -15,6 +15,7 @@ import {
   CardContent,
 } from "@multica/ui/components/ui/card";
 import { Button } from "@multica/ui/components/ui/button";
+import { OIDC_VERIFIER_KEY } from "@multica/views/auth";
 import { Loader2 } from "lucide-react";
 
 function CallbackContent() {
@@ -22,6 +23,7 @@ function CallbackContent() {
   const searchParams = useSearchParams();
   const qc = useQueryClient();
   const loginWithGoogle = useAuthStore((s) => s.loginWithGoogle);
+  const loginWithOidc = useAuthStore((s) => s.loginWithOidc);
   const hydrateWorkspace = useWorkspaceStore((s) => s.hydrateWorkspace);
   const [error, setError] = useState("");
   const [desktopToken, setDesktopToken] = useState<string | null>(null);
@@ -42,25 +44,15 @@ function CallbackContent() {
     const state = searchParams.get("state") || "";
     const stateParts = state.split(",");
     const isDesktop = stateParts.includes("platform:desktop");
+    const isOidc = stateParts.includes("provider:agentic360");
     const nextPart = stateParts.find((p) => p.startsWith("next:"));
     const nextUrl = nextPart ? nextPart.slice(5) : null; // strip "next:" prefix
 
     const redirectUri = `${window.location.origin}/auth/callback`;
 
-    if (isDesktop) {
-      // Desktop flow: exchange code for token, then redirect via deep link
-      api
-        .googleLogin(code, redirectUri)
-        .then(({ token }) => {
-          setDesktopToken(token);
-          window.location.href = `multica://auth/callback?token=${encodeURIComponent(token)}`;
-        })
-        .catch((err) => {
-          setError(err instanceof Error ? err.message : "Login failed");
-        });
-    } else {
-      // Normal web flow
-      loginWithGoogle(code, redirectUri)
+    // Shared post-login hydration + redirect for web flows.
+    const completeWebLogin = (login: Promise<unknown>) =>
+      login
         .then(async () => {
           const wsList = await api.listWorkspaces();
           qc.setQueryData(workspaceKeys.list(), wsList);
@@ -73,8 +65,33 @@ function CallbackContent() {
         .catch((err) => {
           setError(err instanceof Error ? err.message : "Login failed");
         });
+
+    if (isOidc) {
+      // Agentic360 IAM (OIDC + PKCE) web flow.
+      const verifier =
+        typeof window !== "undefined"
+          ? sessionStorage.getItem(OIDC_VERIFIER_KEY) || ""
+          : "";
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem(OIDC_VERIFIER_KEY);
+      }
+      completeWebLogin(loginWithOidc(code, redirectUri, verifier));
+    } else if (isDesktop) {
+      // Desktop flow: exchange code for token, then redirect via deep link
+      api
+        .googleLogin(code, redirectUri)
+        .then(({ token }) => {
+          setDesktopToken(token);
+          window.location.href = `multica://auth/callback?token=${encodeURIComponent(token)}`;
+        })
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : "Login failed");
+        });
+    } else {
+      // Normal Google web flow
+      completeWebLogin(loginWithGoogle(code, redirectUri));
     }
-  }, [searchParams, loginWithGoogle, hydrateWorkspace, router, qc]);
+  }, [searchParams, loginWithGoogle, loginWithOidc, hydrateWorkspace, router, qc]);
 
   if (desktopToken) {
     return (
