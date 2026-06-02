@@ -41,6 +41,11 @@ jobs:
           context: .
           file: Dockerfile.web
           push: true
+          build-args: |
+            NEXT_PUBLIC_OIDC_AUTHORIZE_URL=https://auth.agentic360.de/oauth/v2/authorize
+            NEXT_PUBLIC_OIDC_CLIENT_ID=multica@agentic360
+            NEXT_PUBLIC_OIDC_SCOPE=openid email profile
+            NEXT_PUBLIC_OIDC_LABEL=Mit Agentic360 anmelden
           tags: |
             ghcr.io/andreasfredrich/multica-web:latest
             ghcr.io/andreasfredrich/multica-web:${{ github.sha }}
