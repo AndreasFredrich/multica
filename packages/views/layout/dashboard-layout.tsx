@@ -40,7 +40,14 @@ export function DashboardLayout({
     >
       <SidebarProvider className="h-svh">
         <AppSidebar searchSlot={searchSlot} />
-        <SidebarInset className="relative overflow-hidden">
+        <SidebarInset className="relative overflow-hidden bg-transparent">
+          {/* Dashboard background image (Kanban-Board login motif) + readability scrim */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 -z-10 bg-cover bg-center"
+            style={{ backgroundImage: "url(/ai-brain-bg.jpg)" }}
+          />
+          <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-background/75" />
           <div className="flex h-10 shrink-0 items-center border-b px-2 md:hidden">
             <SidebarTrigger />
           </div>
