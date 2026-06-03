@@ -711,6 +711,38 @@ describe("LoginPage", () => {
       );
     });
   });
+
+  // -------------------------------------------------------------------------
+  // oidcOnly mode (hosted SSO gate)
+  // -------------------------------------------------------------------------
+
+  it("oidcOnly renders only the SSO button — no email form", () => {
+    render(
+      <LoginPage
+        onSuccess={onSuccess}
+        oidcOnly
+        oidc={{
+          authorizeUrl: "https://auth.agentic360.de/oauth/v2/authorize",
+          clientId: "multica@agentic360",
+          redirectUri: "http://localhost:3000/auth/callback",
+          label: "Mit Agentic360 anmelden",
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: /mit agentic360 anmelden/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /continue/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("oidcOnly falls back to the email form when oidc is unconfigured", () => {
+    render(<LoginPage onSuccess={onSuccess} oidcOnly />);
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+  });
 });
 
 // ---------------------------------------------------------------------------

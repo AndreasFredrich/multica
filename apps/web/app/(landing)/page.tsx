@@ -1,23 +1,7 @@
-import type { Metadata } from "next";
-import { MulticaLanding } from "@/features/landing/components/multica-landing";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: {
-    absolute: "Multica — Project Management for Human + Agent Teams",
-  },
-  description:
-    "Open-source platform that turns coding agents into real teammates. Assign tasks, track progress, compound skills.",
-  openGraph: {
-    title: "Multica — Project Management for Human + Agent Teams",
-    description:
-      "Manage your human + agent workforce in one place.",
-    url: "/",
-  },
-  alternates: {
-    canonical: "/",
-  },
-};
-
+// Hosted Multica goes straight to sign-in; the marketing landing stays available
+// at /homepage (and /about, /changelog) so this is fully reversible.
 export default function LandingPage() {
-  return <MulticaLanding />;
+  redirect("/login");
 }

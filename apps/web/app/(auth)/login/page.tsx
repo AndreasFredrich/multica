@@ -7,7 +7,6 @@ import { useWorkspaceStore } from "@multica/core/workspace";
 import { setLoggedInCookie } from "@/features/auth/auth-cookie";
 import { LoginPage, validateCliCallback } from "@multica/views/auth";
 
-const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 const oidcAuthorizeUrl = process.env.NEXT_PUBLIC_OIDC_AUTHORIZE_URL;
 const oidcClientId = process.env.NEXT_PUBLIC_OIDC_CLIENT_ID;
 const oidcScope = process.env.NEXT_PUBLIC_OIDC_SCOPE || "openid email profile";
@@ -21,7 +20,6 @@ function LoginPageContent() {
 
   const cliCallbackRaw = searchParams.get("cli_callback");
   const cliState = searchParams.get("cli_state") || "";
-  const platform = searchParams.get("platform");
   const nextUrl = searchParams.get("next") || "/issues";
 
   // Already authenticated — redirect to dashboard (skip if CLI callback)
@@ -41,53 +39,51 @@ function LoginPageContent() {
     router.push(ws ? nextUrl : "/onboarding");
   };
 
-  // Build Google OAuth state: encode platform + next URL so the callback
-  // can redirect to the right place after login.
-  const googleState = [
-    platform === "desktop" ? "platform:desktop" : "",
-    nextUrl !== "/issues" ? `next:${nextUrl}` : "",
-  ]
-    .filter(Boolean)
-    .join(",") || undefined;
-
   // OIDC (Agentic360 IAM) state carries the provider marker so the callback can
-  // route the response to the OIDC exchange instead of Google.
+  // route the response to the OIDC exchange.
   const oidcState = ["provider:agentic360", nextUrl !== "/issues" ? `next:${nextUrl}` : ""]
     .filter(Boolean)
     .join(",");
 
+  const oidcConfigured = Boolean(oidcAuthorizeUrl && oidcClientId);
+
   return (
-    <LoginPage
-      onSuccess={handleSuccess}
-      google={
-        googleClientId
-          ? {
-              clientId: googleClientId,
-              redirectUri: `${window.location.origin}/auth/callback`,
-              state: googleState,
-            }
-          : undefined
-      }
-      oidc={
-        oidcAuthorizeUrl && oidcClientId
-          ? {
-              authorizeUrl: oidcAuthorizeUrl,
-              clientId: oidcClientId,
-              redirectUri: `${window.location.origin}/auth/callback`,
-              scope: oidcScope,
-              state: oidcState,
-              label: oidcLabel,
-            }
-          : undefined
-      }
-      cliCallback={
-        cliCallbackRaw && validateCliCallback(cliCallbackRaw)
-          ? { url: cliCallbackRaw, state: cliState }
-          : undefined
-      }
-      lastWorkspaceId={lastWorkspaceId}
-      onTokenObtained={setLoggedInCookie}
-    />
+    <div className="relative min-h-svh">
+      {/* Brain background (same motif as the dashboard), with an overlay so the
+          login card keeps its contrast. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10 bg-cover bg-center"
+        style={{ backgroundImage: "url(/ai-brain-bg.jpg)" }}
+      />
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-background/75" />
+      <LoginPage
+        onSuccess={handleSuccess}
+        oidc={
+          oidcConfigured
+            ? {
+                authorizeUrl: oidcAuthorizeUrl!,
+                clientId: oidcClientId!,
+                redirectUri: `${window.location.origin}/auth/callback`,
+                scope: oidcScope,
+                state: oidcState,
+                label: oidcLabel,
+              }
+            : undefined
+        }
+        // Hosted Multica gates sign-in behind Agentic360 IAM only. Falls back to
+        // the full form if OIDC isn't configured, so a build without the env vars
+        // can never lock everyone out.
+        oidcOnly={oidcConfigured}
+        cliCallback={
+          cliCallbackRaw && validateCliCallback(cliCallbackRaw)
+            ? { url: cliCallbackRaw, state: cliState }
+            : undefined
+        }
+        lastWorkspaceId={lastWorkspaceId}
+        onTokenObtained={setLoggedInCookie}
+      />
+    </div>
   );
 }
 

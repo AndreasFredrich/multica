@@ -64,6 +64,10 @@ interface LoginPageProps {
   google?: GoogleAuthConfig;
   /** Generic OIDC provider config (e.g. Agentic360 IAM). Omit to disable. */
   oidc?: OidcAuthConfig;
+  /** When true (and `oidc` is configured), render ONLY the OIDC sign-in button —
+   *  no email-code form, no Google. Falls back to the full form when `oidc` is
+   *  unset so a missing config can never produce an unusable login screen. */
+  oidcOnly?: boolean;
   /** CLI callback config for authorizing CLI tools. */
   cliCallback?: CliCallbackConfig;
   /** Preferred workspace ID to restore after login. */
@@ -134,6 +138,7 @@ export function LoginPage({
   onSuccess,
   google,
   oidc,
+  oidcOnly,
   cliCallback,
   lastWorkspaceId,
   onTokenObtained,
@@ -336,6 +341,53 @@ export function LoginPage({
       setLoading(false);
     }
   };
+
+  // -------------------------------------------------------------------------
+  // OIDC-only mode — a single SSO button, no email-code form or Google.
+  // Used by hosted instances that gate sign-in behind an external IdP.
+  // -------------------------------------------------------------------------
+
+  if (oidcOnly && oidc) {
+    return (
+      <div className="flex min-h-svh items-center justify-center">
+        <Card className="w-full max-w-sm">
+          <CardHeader className="text-center">
+            {logo && <div className="mx-auto mb-4">{logo}</div>}
+            <CardTitle className="text-2xl">Sign in to Multica</CardTitle>
+            <CardDescription>
+              Use your Agentic360 account to continue
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <Button
+              type="button"
+              className="w-full"
+              size="lg"
+              onClick={handleOidcLogin}
+              disabled={loading}
+            >
+              <svg
+                className="mr-2 h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+              {loading ? "Redirecting…" : oidc.label || "Continue with Agentic360"}
+            </Button>
+            {error && (
+              <p className="text-center text-sm text-destructive">{error}</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // -------------------------------------------------------------------------
   // CLI confirm step
