@@ -34,6 +34,10 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
+        source: "/health",
+        destination: `${remoteApiUrl}/health`,
+      },
+      {
         source: "/api/:path*",
         destination: `${remoteApiUrl}/api/:path*`,
       },
